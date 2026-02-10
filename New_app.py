@@ -31,7 +31,7 @@ def get_base64_image(image_path):
 logo_base64 = get_base64_image("SOMAEYE-Bacteria.jpeg")
 
 # =========================================================
-# CUSTOM CSS
+# CUSTOM CSS (ONLY FINAL RESULT COLORS + FONT SIZE)
 # =========================================================
 st.markdown("""
 <style>
@@ -64,7 +64,18 @@ st.markdown("""
     font-weight: 900;
     color: #0f172a;
 }
+            
+/* ===== CHANGE BUTTON TEXT ONLY ===== */
+[data-testid="stFileUploader"] button {
+    font-size: 0px;
+}
+[data-testid="stFileUploader"] button::after {
+    content: "Capture Images";
+    font-size: 16px;
+    font-weight: 600;
+}
 
+/* FINAL RESULT ONLY */
 .final-card {
     border-radius: 18px;
     padding: 32px;
@@ -77,7 +88,7 @@ st.markdown("""
 
 .final-clean { background-color: #22c55e; }
 .final-critical { background-color: #ef4444; }
-.final-caution { background-color: #f59e0b; }
+.final-caution { background-color: #f59e0b; } /* ORANGE-YELLOW */
 </style>
 """, unsafe_allow_html=True)
 
@@ -88,8 +99,8 @@ st.markdown(
     f"""
     <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:20px;">
         <img src="data:image/png;base64,{logo_base64}" style="width:360px;">
-        <h1>SOMAEYE: Vision-Based Surface Hygiene & Bacteria Load Analysis</h1>
-        <p>Upload exactly <b>2 images</b> for detection</p>
+        <h1>AI-Powere Surface Hygiene Verification For CIP in Dairy Processing</h1>
+        
     </div>
     """,
     unsafe_allow_html=True
@@ -103,6 +114,7 @@ CLASS_COLORS = {
     "milk_residues": {"bgr": (0, 255, 0)},
     "debries": {"bgr": (255, 0, 0)}
 }
+
 
 # =========================================================
 # LOAD YOLO MODEL FROM GOOGLE DRIVE (SINGLE FILE)
@@ -156,7 +168,7 @@ def run_yolo(img_pil, model):
 # FILE UPLOADER
 # =========================================================
 uploaded_files = st.file_uploader(
-    "Drag and drop 2 images",
+    "Capture exactly 2 images for Surface Hyiene Verification",
     type=["jpg", "jpeg", "png"],
     accept_multiple_files=True,
     key=f"image_uploader_{st.session_state.uploader_version}"
@@ -182,15 +194,18 @@ if uploaded_files and len(uploaded_files) == 2:
     milk = total_counts.get("milk_residues", 0)
     debries = total_counts.get("debries", 0)
 
+    # IMAGE DISPLAY
     col1, col2 = st.columns(2)
     col1.image(ann_img1, caption="Image 1 – Detection Output", use_container_width=True)
     col2.image(ann_img2, caption="Image 2 – Detection Output", use_container_width=True)
 
+    # COUNTS
     s1, s2, s3 = st.columns(3)
     s1.markdown(f"<div class='card critical'><div class='card-title'>Bacteria Count</div><div class='card-value'>{bacteria}</div></div>", unsafe_allow_html=True)
     s2.markdown(f"<div class='card parrot-green'><div class='card-title'>Milk Residues Count</div><div class='card-value'>{milk}</div></div>", unsafe_allow_html=True)
     s3.markdown(f"<div class='card info'><div class='card-title'>Debries Count</div><div class='card-value'>{debries}</div></div>", unsafe_allow_html=True)
 
+    # BACTERIA / ML & CFU
     if bacteria > 0:
         bacteria_ml = int(bacteria * 1000)
         cfu = int(np.round(bacteria_ml / 3))
@@ -199,19 +214,37 @@ if uploaded_files and len(uploaded_files) == 2:
         c1.markdown(f"<div class='card critical'><div class='card-title'>Bacteria / ml</div><div class='card-value'>{bacteria_ml}</div></div>", unsafe_allow_html=True)
         c2.markdown(f"<div class='card critical'><div class='card-title'>CFU / ml</div><div class='card-value'>{cfu}</div></div>", unsafe_allow_html=True)
 
+    # =====================================================
+    # FINAL RESULT (WITH CAUTION CONDITION)
     if bacteria > 15 or milk > 10 or debries > 10:
-        st.markdown("<div class='final-card final-critical'>✖ Surface Is Not Clean</div>", unsafe_allow_html=True)
-    elif (5 <= bacteria <= 15) or (5 <= milk <= 10) or (5 <= debries <= 10):
-        st.markdown("<div class='final-card final-caution'>⚠️ Caution</div>", unsafe_allow_html=True)
-    else:
-        st.markdown("<div class='final-card final-clean'>✅ Surface Is Clean</div>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class="final-card final-critical">
+            ✖ Surface Is Not Clean
+        </div>
+        """, unsafe_allow_html=True)
 
+    elif (5 <= bacteria <= 15) or (5 <= milk <= 10) or (5 <= debries <= 10):
+        st.markdown("""
+        <div class="final-card final-caution">
+            ⚠️ Caution
+        </div>
+        """, unsafe_allow_html=True)
+
+    else:
+        st.markdown("""
+        <div class="final-card final-clean">
+            ✅ Surface Is Clean
+        </div>
+        """, unsafe_allow_html=True)
+
+    # NEXT SAMPLE
     st.markdown("---")
     if st.button("🔄 Test Next Sample"):
         st.session_state.uploader_version += 1
         st.rerun()
 
-elif uploaded_files:
-    st.warning("Please upload exactly 2 images.")
-else:
-    st.info("Please upload exactly 2 images to run detection.")
+# elif uploaded_files:
+#     st.warning("Please capture exactly 2 images.")
+# else:
+#     st.info("Please capture exactly 2 images to check surface hygiene")
+
