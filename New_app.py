@@ -3,6 +3,7 @@ from ultralytics import YOLO
 from PIL import Image
 import numpy as np
 import base64
+import cv2
 import os
 import gdown
 
@@ -10,9 +11,15 @@ import gdown
 # PAGE CONFIG
 # =========================================================
 st.set_page_config(
-    page_title="AI-powered computer vision system for surface hygiene monitoring",
+    page_title="SOMAEYE: Vision-Based Surface Hygiene & Bacteria Load Analysis",
     layout="wide"
 )
+
+# =========================================================
+# SESSION STATE INIT
+# =========================================================
+if "uploader_version" not in st.session_state:
+    st.session_state.uploader_version = 0
 
 # =========================================================
 # HELPER: LOAD LOGO
@@ -21,155 +28,86 @@ def get_base64_image(image_path):
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
-logo_base64 = get_base64_image("prompt_logo_transparent.png")
+logo_base64 = get_base64_image("SOMAEYE-Bacteria.jpeg")
 
 # =========================================================
-# GLOBAL CSS
+# CUSTOM CSS
 # =========================================================
-st.markdown(
-    """
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(90deg, #d8f1ff 0%, #eef8ff 100%);
+}
 
-    .stApp {
-        background-color: #2b2a6a;
-        padding-top: 20px;
-        font-family: 'Poppins', sans-serif;
-    }
+.card {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 26px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+    border-left: 6px solid;
+    margin: 12px 0;
+}
 
-    .top-bar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 25px;
-    }
+.card.clean { border-color: #22c55e; }
+.card.critical { border-color: #ef4444; }
+.card.parrot-green { border-color: #00FF00; }
+.card.info { border-color: #3b82f6; }
 
-    .logo {
-        height: 150px;
-    }
+.card-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #475569;
+}
 
-    .title-container {
-        text-align: center;
-        margin-bottom: 30px;
-    }
+.card-value {
+    font-size: 36px;
+    font-weight: 900;
+    color: #0f172a;
+}
 
-    .title-text {
-        font-size: 44px;
-        font-weight: 800;
-        color: #ffffff;
-    }
+.final-card {
+    border-radius: 18px;
+    padding: 32px;
+    margin: 22px 0;
+    color: white;
+    text-align: center;
+    font-weight: 900;
+    font-size: 34px;
+}
 
-    .subtitle-text {
-        font-size: 18px;
-        color: #cbd5e1;
-        margin-top: 6px;
-    }
-
-    div[data-testid="stFileUploader"] section {
-        background-color: transparent !important;
-        border: 2px dashed rgba(255,255,255,0.4);
-        border-radius: 14px;
-        padding: 28px;
-    }
-
-    div[data-testid="stFileUploader"] label {
-        display: none;
-    }
-
-    div[data-testid="stFileUploaderFileName"] {
-        color: #ffffff !important;
-        font-weight: 500;
-    }
-
-    div[data-testid="stFileUploaderFileSize"] {
-        color: #e5e7eb !important;
-    }
-
-    .upload-subtitle {
-        text-align: center;
-        color: #ffffff;
-        font-size: 16px;
-        font-weight: 500;
-        margin-bottom: 16px;
-    }
-
-    .result-card {
-        max-width: 620px;
-        margin: 40px auto 0 auto;
-        padding: 28px 32px;
-        background: linear-gradient(
-            180deg,
-            rgba(255,255,255,0.06),
-            rgba(255,255,255,0.02)
-        );
-        border-radius: 18px;
-        border: 1px solid rgba(255,255,255,0.18);
-        box-shadow: 0 12px 30px rgba(0,0,0,0.35);
-        text-align: center;
-    }
-
-    .result-header {
-        font-size: 22px;
-        font-weight: 700;
-        color: #ffffff;
-        margin-bottom: 16px;
-    }
-
-    .result-divider {
-        height: 1px;
-        background: rgba(255,255,255,0.25);
-        margin: 18px 0;
-    }
-
-    .result-metric {
-        font-size: 18px;
-        font-weight: 500;
-        color: #ffffff;
-        margin: 10px 0;
-    }
-
-    .result-clean {
-        font-size: 26px;
-        font-weight: 800;
-        color: #7dd3fc;
-    }
-
-    .info-text {
-        color: #ffffff;
-        text-align: center;
-        font-size: 16px;
-        margin-top: 25px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+.final-clean { background-color: #22c55e; }
+.final-critical { background-color: #ef4444; }
+.final-caution { background-color: #f59e0b; }
+</style>
+""", unsafe_allow_html=True)
 
 # =========================================================
 # HEADER
 # =========================================================
 st.markdown(
     f"""
-    <div class="top-bar">
-        <img src="data:image/png;base64,{logo_base64}" class="logo">
-    </div>
-
-    <div class="title-container">
-        <div class="title-text">
-            AI-powered computer vision system for surface hygiene monitoring
-        </div>
-        <div class="subtitle-text">
-            Upload exactly 2 images for detection
-        </div>
+    <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:20px;">
+        <img src="data:image/png;base64,{logo_base64}" style="width:360px;">
+        <h1>SOMAEYE: Vision-Based Surface Hygiene & Bacteria Load Analysis</h1>
+        <p>Upload exactly <b>2 images</b> for detection</p>
     </div>
     """,
     unsafe_allow_html=True
 )
 
 # =========================================================
-# LOAD YOLO MODEL FROM GOOGLE DRIVE (FOLDER)
+# CLASS COLORS
 # =========================================================
-GDRIVE_FOLDER_ID = "138FKWerRv6A5jgPh4LtEuaSi4KdrnaWJ"
+CLASS_COLORS = {
+    "bacteria": {"bgr": (0, 0, 255)},
+    "milk_residues": {"bgr": (0, 255, 0)},
+    "debries": {"bgr": (255, 0, 0)}
+}
+
+# =========================================================
+# LOAD YOLO MODEL FROM GOOGLE DRIVE (SINGLE FILE)
+# =========================================================
+GDRIVE_FILE_ID = "1wYIHhpl_aCHKui3yMo-7I8kqucmUtED2"
 MODEL_NAME = "Yolov11_BacteriaDetection.pt"
 MODEL_DIR = "models"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
@@ -179,58 +117,61 @@ def load_yolo_model():
     os.makedirs(MODEL_DIR, exist_ok=True)
 
     if not os.path.exists(MODEL_PATH):
-        with st.spinner("Downloading AI model..."):
-            gdown.download_folder(
-                id=GDRIVE_FOLDER_ID,
-                output=MODEL_DIR,
+        with st.spinner("Downloading AI model from Google Drive..."):
+            gdown.download(
+                id=GDRIVE_FILE_ID,
+                output=MODEL_PATH,
                 quiet=False
             )
 
     return YOLO(MODEL_PATH)
 
-yolo_model = load_yolo_model()
+if "yolo_model" not in st.session_state:
+    st.session_state.yolo_model = load_yolo_model()
 
 # =========================================================
-# YOLO INFERENCE FUNCTION
+# YOLO INFERENCE
 # =========================================================
-def run_yolo_and_get_counts(img_pil, model, conf_threshold=0.25):
-    img_np = np.array(img_pil)
-    results = model(img_np, conf=conf_threshold, iou=0.5)
-
+def run_yolo(img_pil, model):
+    img = np.array(img_pil)
+    img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    results = model(img, conf=0.25, iou=0.5)
     counts = {}
+
     if results and results[0].boxes is not None:
-        classes = results[0].boxes.cls.cpu().numpy().astype(int)
-        for cls_id in classes:
+        for box, cls_id in zip(
+            results[0].boxes.xyxy.cpu().numpy(),
+            results[0].boxes.cls.cpu().numpy().astype(int)
+        ):
             label = results[0].names[int(cls_id)].lower().strip()
             counts[label] = counts.get(label, 0) + 1
-    return counts
+
+            color = CLASS_COLORS.get(label, {}).get("bgr", (0, 255, 0))
+            x1, y1, x2, y2 = map(int, box)
+            cv2.rectangle(img_bgr, (x1, y1), (x2, y2), color, 2)
+
+    return counts, cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
 # =========================================================
 # FILE UPLOADER
 # =========================================================
-st.markdown(
-    "<div class='upload-subtitle'>Drag and drop exactly 2 images or click to browse</div>",
-    unsafe_allow_html=True
-)
-
 uploaded_files = st.file_uploader(
-    label="Surface Image Upload",
+    "Drag and drop 2 images",
     type=["jpg", "jpeg", "png"],
     accept_multiple_files=True,
-    key="surface_image_uploader",
-    label_visibility="collapsed"
+    key=f"image_uploader_{st.session_state.uploader_version}"
 )
 
 # =========================================================
-# RUN DETECTION
+# MAIN EXECUTION
 # =========================================================
 if uploaded_files and len(uploaded_files) == 2:
 
     img1 = Image.open(uploaded_files[0]).convert("RGB")
     img2 = Image.open(uploaded_files[1]).convert("RGB")
 
-    counts1 = run_yolo_and_get_counts(img1, yolo_model)
-    counts2 = run_yolo_and_get_counts(img2, yolo_model)
+    counts1, ann_img1 = run_yolo(img1, st.session_state.yolo_model)
+    counts2, ann_img2 = run_yolo(img2, st.session_state.yolo_model)
 
     total_counts = {}
     for d in (counts1, counts2):
@@ -238,50 +179,39 @@ if uploaded_files and len(uploaded_files) == 2:
             total_counts[k] = total_counts.get(k, 0) + v
 
     bacteria = total_counts.get("bacteria", 0)
-    debries = total_counts.get("debries", 0)
     milk = total_counts.get("milk_residues", 0)
+    debries = total_counts.get("debries", 0)
 
-    if sum(total_counts.values()) == 0:
-        card_html = """
-        <div class="result-card">
-            <div class="result-header">Detection Result</div>
-            <div class="result-divider"></div>
-            <div class="result-clean">Surface is Clean</div>
-        </div>
-        """
-    elif bacteria > 0:
-        bacteria_ml = bacteria * 1000
-        cfu = bacteria_ml * 0.09
-        card_html = f"""
-        <div class="result-card">
-            <div class="result-header">Bacterial Contamination Detected</div>
-            <div class="result-divider"></div>
-            <div class="result-metric">Bacteria/ml: <b>{bacteria_ml}</b></div>
-            <div class="result-metric">CFU/ml: <b>{cfu:.2f}</b></div>
-        </div>
-        """
+    col1, col2 = st.columns(2)
+    col1.image(ann_img1, caption="Image 1 – Detection Output", use_container_width=True)
+    col2.image(ann_img2, caption="Image 2 – Detection Output", use_container_width=True)
+
+    s1, s2, s3 = st.columns(3)
+    s1.markdown(f"<div class='card critical'><div class='card-title'>Bacteria Count</div><div class='card-value'>{bacteria}</div></div>", unsafe_allow_html=True)
+    s2.markdown(f"<div class='card parrot-green'><div class='card-title'>Milk Residues Count</div><div class='card-value'>{milk}</div></div>", unsafe_allow_html=True)
+    s3.markdown(f"<div class='card info'><div class='card-title'>Debries Count</div><div class='card-value'>{debries}</div></div>", unsafe_allow_html=True)
+
+    if bacteria > 0:
+        bacteria_ml = int(bacteria * 1000)
+        cfu = int(np.round(bacteria_ml / 3))
+
+        c1, c2 = st.columns(2)
+        c1.markdown(f"<div class='card critical'><div class='card-title'>Bacteria / ml</div><div class='card-value'>{bacteria_ml}</div></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='card critical'><div class='card-title'>CFU / ml</div><div class='card-value'>{cfu}</div></div>", unsafe_allow_html=True)
+
+    if bacteria > 15 or milk > 10 or debries > 10:
+        st.markdown("<div class='final-card final-critical'>✖ Surface Is Not Clean</div>", unsafe_allow_html=True)
+    elif (5 <= bacteria <= 15) or (5 <= milk <= 10) or (5 <= debries <= 10):
+        st.markdown("<div class='final-card final-caution'>⚠️ Caution</div>", unsafe_allow_html=True)
     else:
-        metrics = ""
-        if milk > 0:
-            metrics += f"<div class='result-metric'>Milk Residues/ml: <b>{milk * 1000}</b></div>"
-        if debries > 0:
-            metrics += f"<div class='result-metric'>Debries/ml: <b>{debries * 1000}</b></div>"
+        st.markdown("<div class='final-card final-clean'>✅ Surface Is Clean</div>", unsafe_allow_html=True)
 
-        card_html = f"""
-        <div class="result-card">
-            <div class="result-header">Surface Residue Detected</div>
-            <div class="result-divider"></div>
-            {metrics}
-        </div>
-        """
-
-    st.markdown(card_html, unsafe_allow_html=True)
+    st.markdown("---")
+    if st.button("🔄 Test Next Sample"):
+        st.session_state.uploader_version += 1
+        st.rerun()
 
 elif uploaded_files:
     st.warning("Please upload exactly 2 images.")
-
 else:
-    st.markdown(
-        "<div class='info-text'>Please upload exactly 2 images to run the detection.</div>",
-        unsafe_allow_html=True
-    )
+    st.info("Please upload exactly 2 images to run detection.")
