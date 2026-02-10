@@ -99,7 +99,7 @@ st.markdown(
     f"""
     <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:20px;">
         <img src="data:image/png;base64,{logo_base64}" style="width:360px;">
-        <h1>AI-Powere Surface Hygiene Verification For CIP in Dairy Processing</h1>
+        <h1>AI-Powered Surface Hygiene Verification For CIP in Dairy Processing</h1>
         
     </div>
     """,
@@ -247,4 +247,5 @@ if uploaded_files and len(uploaded_files) == 2:
 #     st.warning("Please capture exactly 2 images.")
 # else:
 #     st.info("Please capture exactly 2 images to check surface hygiene")
+
 
