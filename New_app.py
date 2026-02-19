@@ -70,7 +70,7 @@ st.markdown("""
     font-size: 0px;
 }
 [data-testid="stFileUploader"] button::after {
-    content: "Capture Image";
+    content: "Capture Images";
     font-size: 16px;
     font-weight: 600;
 }
@@ -100,6 +100,7 @@ st.markdown(
     <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:20px;">
         <img src="data:image/png;base64,{logo_base64}" style="width:360px;">
         <h1>AI-Powered Surface Hygiene Verification For CIP in Dairy Processing</h1>
+        
     </div>
     """,
     unsafe_allow_html=True
@@ -113,6 +114,7 @@ CLASS_COLORS = {
     "milk_residues": {"bgr": (0, 255, 0)},
     "debries": {"bgr": (255, 0, 0)}
 }
+
 
 # =========================================================
 # LOAD YOLO MODEL FROM GOOGLE DRIVE (SINGLE FILE)
@@ -165,27 +167,37 @@ def run_yolo(img_pil, model):
 # =========================================================
 # FILE UPLOADER
 # =========================================================
-uploaded_file = st.file_uploader(
-    "Capture 1 image for Surface Hygiene Verification",
+uploaded_files = st.file_uploader(
+    "Capture exactly 2 images for Surface Hyiene Verification",
     type=["jpg", "jpeg", "png"],
+    accept_multiple_files=True,
     key=f"image_uploader_{st.session_state.uploader_version}"
 )
 
 # =========================================================
 # MAIN EXECUTION
 # =========================================================
-if uploaded_file:
+if uploaded_files and len(uploaded_files) == 2:
 
-    img = Image.open(uploaded_file).convert("RGB")
+    img1 = Image.open(uploaded_files[0]).convert("RGB")
+    img2 = Image.open(uploaded_files[1]).convert("RGB")
 
-    counts, ann_img = run_yolo(img, st.session_state.yolo_model)
+    counts1, ann_img1 = run_yolo(img1, st.session_state.yolo_model)
+    counts2, ann_img2 = run_yolo(img2, st.session_state.yolo_model)
 
-    bacteria = counts.get("bacteria", 0)
-    milk = counts.get("milk_residues", 0)
-    debries = counts.get("debries", 0)
+    total_counts = {}
+    for d in (counts1, counts2):
+        for k, v in d.items():
+            total_counts[k] = total_counts.get(k, 0) + v
+
+    bacteria = total_counts.get("bacteria", 0)
+    milk = total_counts.get("milk_residues", 0)
+    debries = total_counts.get("debries", 0)
 
     # IMAGE DISPLAY
-    st.image(ann_img, caption="Detection Output", use_container_width=True)
+    col1, col2 = st.columns(2)
+    col1.image(ann_img1, caption="Image 1 – Detection Output", use_container_width=True)
+    col2.image(ann_img2, caption="Image 2 – Detection Output", use_container_width=True)
 
     # COUNTS
     s1, s2, s3 = st.columns(3)
@@ -231,5 +243,8 @@ if uploaded_file:
         st.session_state.uploader_version += 1
         st.rerun()
 
-else:
-    st.info("Please capture 1 image to check surface hygiene")
+# elif uploaded_files:
+#     st.warning("Please capture exactly 2 images.")
+# else:
+#     st.info("Please capture exactly 2 images to check surface hygiene")
+
